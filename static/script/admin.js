@@ -1,105 +1,162 @@
 // Admin Panel JavaScript
-function showSection(id) {
-  // Hide all sections
-  document.querySelectorAll('.section').forEach(sec => sec.style.display = "none");
-  
-  // Show selected section
-  document.getElementById(id).style.display = "block";
-  
-  // Update active sidebar link
-  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove("active"));
-  event.target.classList.add("active");
-}
-
-// Initialize admin panel
 document.addEventListener('DOMContentLoaded', function() {
-  // Add loading animation
-  setTimeout(() => {
-    document.body.style.opacity = '1';
-    document.body.style.transition = 'opacity 0.5s ease';
-  }, 100);
-  
-  // Add sample interactive functionality
-  initializeAdminFeatures();
+    checkAuthAndInitialize();
 });
 
-function initializeAdminFeatures() {
-  // Add event listeners to buttons for demo purposes
-  document.querySelectorAll('.btn-primary').forEach(button => {
-    if (button.textContent.includes('Add New Event')) {
-      button.addEventListener('click', function() {
-        alert('Feature: Add New Event - This would open a modal or form in a real application');
-      });
-    }
-    
-    if (button.textContent.includes('Download')) {
-      button.addEventListener('click', function() {
-        alert('Feature: Download Report - This would generate and download a report in a real application');
-      });
-    }
-    
-    if (button.textContent.includes('Resolve')) {
-      button.addEventListener('click', function() {
-        const row = this.closest('tr');
-        const statusCell = row.querySelector('td:nth-child(4)');
-        statusCell.textContent = 'Resolved';
-        statusCell.className = 'status-resolved';
-        this.textContent = 'Resolved';
-        this.className = 'btn-secondary';
-        alert('Support ticket marked as resolved!');
-      });
-    }
-  });
-  
-  // Add functionality to edit buttons
-  document.querySelectorAll('.btn-secondary').forEach(button => {
-    if (button.textContent === 'Edit') {
-      button.addEventListener('click', function() {
-        alert('Feature: Edit Event - This would open an edit form in a real application');
-      });
-    }
-    
-    if (button.textContent === 'Activate') {
-      button.addEventListener('click', function() {
-        const row = this.closest('tr');
-        const statusCell = row.querySelector('td:nth-child(4)');
-        statusCell.textContent = 'Active';
-        statusCell.className = 'status-paid';
-        this.textContent = 'Suspend';
-        this.className = 'btn-danger';
-        alert('User activated successfully!');
-      });
-    }
-  });
-  
-  // Add functionality to delete/suspend buttons
-  document.querySelectorAll('.btn-danger').forEach(button => {
-    if (button.textContent === 'Delete') {
-      button.addEventListener('click', function() {
-        if (confirm('Are you sure you want to delete this event?')) {
-          const row = this.closest('tr');
-          row.style.opacity = '0.5';
-          row.style.backgroundColor = '#C73E3E';
-          setTimeout(() => {
-            row.remove();
-            alert('Event deleted successfully!');
-          }, 500);
+async function checkAuthAndInitialize() {
+    try {
+        const response = await fetch('/api/auth/check');
+        const data = await response.json();
+        
+        if (data.authenticated && data.user.role === 'admin') {
+            initializeAdminPanel();
+            loadDashboardData();
+        } else {
+            window.location.href = '/login';
         }
-      });
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        window.location.href = '/login';
+    }
+}
+
+function initializeAdminPanel() {
+    document.body.style.opacity = '1';
+    document.body.style.transition = 'opacity 0.5s ease';
+}
+
+async function loadDashboardData() {
+    try {
+        const response = await fetch('/api/admin/stats');
+        if (response.ok) {
+            const stats = await response.json();
+            updateDashboardStats(stats);
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+function updateDashboardStats(stats) {
+    const usersCard = document.querySelector('.summary-card:nth-child(3)');
+    if (usersCard) {
+        usersCard.innerHTML = `
+            <h3>👤 Users</h3>
+            <p>Registered: <b>${stats.total_users}</b></p>
+            <p>Recent: <b>${stats.recent_users}</b></p>
+        `;
     }
     
-    if (button.textContent === 'Suspend') {
-      button.addEventListener('click', function() {
-        if (confirm('Are you sure you want to suspend this user?')) {
-          const row = this.closest('tr');
-          const statusCell = row.querySelector('td:nth-child(4)');
-          statusCell.textContent = 'Suspended';
-          statusCell.className = 'status-pending';
-          this.textContent = 'Activate';
-          this.className = 'btn-secondary';
-          alert('User suspended successfully!');
-        }
-      });
+    const eventsCard = document.querySelector('.summary-card:nth-child(1)');
+    if (eventsCard) {
+        eventsCard.innerHTML = `
+            <h3>🎵 Total Events</h3>
+            <p>Active Events: <b>${stats.total_concerts}</b></p>
+            <p>Upcoming: <b>${stats.total_concerts}</b></p>
+        `;
     }
-  });
+}
+
+function showSection(id) {
+    document.querySelectorAll('.section').forEach(sec => sec.style.display = "none");
+    document.getElementById(id).style.display = "block";
+    
+    document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove("active"));
+    event.target.classList.add("active");
+    
+    if (id === 'users') loadUsersData();
+    if (id === 'events') loadEventsData();
+}
+
+async function loadUsersData() {
+    try {
+        const response = await fetch('/api/admin/users');
+        if (response.ok) {
+            const users = await response.json();
+            renderUsersTable(users);
+        }
+    } catch (error) {
+        console.error('Error loading users:', error);
+    }
+}
+
+async function loadEventsData() {
+    try {
+        const response = await fetch('/api/concerts');
+        if (response.ok) {
+            const concerts = await response.json();
+            renderEventsTable(concerts);
+        }
+    } catch (error) {
+        console.error('Error loading events:', error);
+    }
+}
+
+function renderUsersTable(users) {
+    const usersSection = document.getElementById('users');
+    let tableHTML = `
+        <h2>User Management</h2>
+        <div class="table-container">
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Join Date</th>
+                </tr>
+    `;
+    
+    users.forEach(user => {
+        const joinDate = new Date(user.join_date).toLocaleDateString();
+        tableHTML += `
+            <tr>
+                <td>${user.id}</td>
+                <td>${user.username}</td>
+                <td>${user.email}</td>
+                <td class="${user.role === 'admin' ? 'status-paid' : 'status-pending'}">${user.role}</td>
+                <td>${joinDate}</td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += `</table></div>`;
+    usersSection.innerHTML = tableHTML;
+}
+
+function renderEventsTable(concerts) {
+    const eventsSection = document.getElementById('events');
+    let tableHTML = `
+        <h2>Manage Events</h2>
+        <div class="table-container">
+            <table>
+                <tr>
+                    <th>Event Name</th>
+                    <th>Artist</th>
+                    <th>Date</th>
+                    <th>Venue</th>
+                    <th>Price</th>
+                </tr>
+    `;
+    
+    concerts.forEach(concert => {
+        tableHTML += `
+            <tr>
+                <td>${concert.name}</td>
+                <td>${concert.artist}</td>
+                <td>${concert.date}</td>
+                <td>${concert.venue}</td>
+                <td>Rp ${concert.price.toLocaleString()}</td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += `</table></div>`;
+    eventsSection.innerHTML = tableHTML;
+}
+
+function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        window.location.href = '/logout';
+    }
 }

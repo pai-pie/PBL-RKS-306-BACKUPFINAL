@@ -76,7 +76,8 @@ def token_required(f):
         if not token:
             return jsonify({'error': 'Token is missing'}), 401
         try:
-            data = jwt.decode(token.split()[1], SECRET_KEY, algorithms=["HS256"])
+            token = token.replace('Bearer ', '')  # Remove Bearer prefix
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             request.user_id = data['user_id']
         except Exception as e:
             return jsonify({'error': 'Token is invalid', 'details': str(e)}), 401
@@ -93,6 +94,83 @@ def health_check():
         return jsonify({'status': 'healthy', 'database': 'connected'})
     except Exception as e:
         return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+
+# Check session endpoint - FIXED VERSION
+@app.route('/api/check-session', methods=['GET'])
+def check_session():
+    """Check if user session is valid"""
+    token = request.headers.get('Authorization')
+    
+    if not token or not token.startswith('Bearer '):
+        return jsonify({'valid': False, 'error': 'No token provided'}), 401
+    
+    try:
+        token = token.split()[1]  # Remove 'Bearer ' prefix
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user_id = decoded['user_id']
+        
+        conn = get_db_connection()
+        user = conn.execute(
+            'SELECT id, username, email, role, phone, join_date FROM users WHERE id = ?',
+            (user_id,)
+        ).fetchone()
+        conn.close()
+        
+        if user:
+            return jsonify({'valid': True, 'user': dict(user)})
+        else:
+            return jsonify({'valid': False, 'error': 'User not found'}), 404
+            
+    except jwt.ExpiredSignatureError:
+        return jsonify({'valid': False, 'error': 'Token expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'valid': False, 'error': 'Invalid token'}), 401
+    except Exception as e:
+        return jsonify({'valid': False, 'error': str(e)}), 500
+
+# Login endpoint
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    identifier = data.get('identifier', '').strip()
+    password = data.get('password', '').strip()
+    
+    if not identifier or not password:
+        return jsonify({'error': 'Email/username and password required'}), 400
+
+    conn = get_db_connection()
+    
+    # Try by email first
+    user = conn.execute(
+        'SELECT * FROM users WHERE email = ?', (identifier,)
+    ).fetchone()
+    
+    # If not found by email, try by username
+    if not user:
+        user = conn.execute(
+            'SELECT * FROM users WHERE username = ?', (identifier,)
+        ).fetchone()
+    
+    conn.close()
+    
+    if user and user['password_hash'] == hash_password(password):
+        user_dict = dict(user)
+        # Remove password from response
+        user_dict.pop('password_hash', None)
+        
+        token = jwt.encode(
+            {'user_id': user['id'], 'username': user['username']}, 
+            SECRET_KEY, 
+            algorithm="HS256"
+        )
+        
+        return jsonify({
+            'token': token, 
+            'user': user_dict,
+            'message': 'Login successful'
+        })
+    else:
+        return jsonify({'error': 'Invalid credentials'}), 401
 
 # User endpoints
 @app.route('/api/users', methods=['GET'])
@@ -151,65 +229,6 @@ def create_user():
         conn.close()
         return jsonify({'error': str(e)}), 500
 
-# Login endpoint
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.json
-    identifier = data.get('identifier', '').strip()
-    password = data.get('password', '').strip()
-    
-    if not identifier or not password:
-        return jsonify({'error': 'Email/username and password required'}), 400
-
-    conn = get_db_connection()
-    
-    # Try by email first
-    user = conn.execute(
-        'SELECT * FROM users WHERE email = ?', (identifier,)
-    ).fetchone()
-    
-    # If not found by email, try by username
-    if not user:
-        user = conn.execute(
-            'SELECT * FROM users WHERE username = ?', (identifier,)
-        ).fetchone()
-    
-    conn.close()
-    
-    if user and user['password_hash'] == hash_password(password):
-        user_dict = dict(user)
-        # Remove password from response
-        user_dict.pop('password_hash', None)
-        
-        token = jwt.encode(
-            {'user_id': user['id'], 'username': user['username']}, 
-            SECRET_KEY, 
-            algorithm="HS256"
-        )
-        
-        return jsonify({
-            'token': token, 
-            'user': user_dict,
-            'message': 'Login successful'
-        })
-    else:
-        return jsonify({'error': 'Invalid credentials'}), 401
-
-# Check user session
-@app.route('/api/check-session', methods=['GET'])
-@token_required
-def check_session():
-    conn = get_db_connection()
-    user = conn.execute(
-        'SELECT id, username, email, role, phone, join_date FROM users WHERE id = ?',
-        (request.user_id,)
-    ).fetchone()
-    conn.close()
-    
-    if user:
-        return jsonify({'user': dict(user), 'valid': True})
-    return jsonify({'valid': False, 'error': 'User not found'}), 404
-
 # Concert endpoints
 @app.route('/api/concerts', methods=['GET'])
 def get_concerts():
@@ -242,6 +261,83 @@ def init_concerts():
         conn.commit()
         conn.close()
         return jsonify({'message': 'Sample concerts added successfully'})
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 500
+
+# Admin endpoints
+@app.route('/api/admin/users', methods=['GET'])
+@token_required
+def get_all_users():
+    """Get all users for admin panel"""
+    conn = get_db_connection()
+    users = conn.execute(
+        'SELECT id, username, email, role, phone, join_date FROM users ORDER BY join_date DESC'
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(user) for user in users])
+
+@app.route('/api/admin/stats', methods=['GET'])
+@token_required
+def get_admin_stats():
+    """Get admin dashboard statistics"""
+    conn = get_db_connection()
+    
+    # Total users count
+    total_users = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+    
+    # Total concerts count
+    total_concerts = conn.execute('SELECT COUNT(*) FROM concerts').fetchone()[0]
+    
+    # Recent users (last 7 days)
+    recent_users = conn.execute(
+        'SELECT COUNT(*) FROM users WHERE join_date >= date("now", "-7 days")'
+    ).fetchone()[0]
+    
+    conn.close()
+    
+    return jsonify({
+        'total_users': total_users,
+        'total_concerts': total_concerts,
+        'recent_users': recent_users,
+        'total_tickets_sold': 1200,  # Placeholder
+        'total_revenue': 850000000,  # Placeholder
+        'pending_transactions': 20   # Placeholder
+    })
+
+@app.route('/api/admin/users/<int:user_id>', methods=['PUT'])
+@token_required
+def update_user_role(user_id):
+    """Update user role (admin/user)"""
+    data = request.json
+    new_role = data.get('role')
+    
+    if new_role not in ['admin', 'user']:
+        return jsonify({'error': 'Invalid role'}), 400
+    
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            'UPDATE users SET role = ? WHERE id = ?',
+            (new_role, user_id)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({'message': f'User role updated to {new_role}'})
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+@token_required
+def delete_user(user_id):
+    """Delete user (admin only)"""
+    conn = get_db_connection()
+    try:
+        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'message': 'User deleted successfully'})
     except Exception as e:
         conn.close()
         return jsonify({'error': str(e)}), 500

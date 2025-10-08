@@ -214,6 +214,30 @@ button {
   animation: fadeIn 0.5s ease-in;
 }
 
+.loading {
+    text-align: center;
+    padding: 50px;
+    color: #C8A2C8;
+    font-size: 1.2em;
+}
+
+.error {
+    text-align: center;
+    padding: 50px;
+    color: #ff6b6b;
+    font-size: 1.2em;
+}
+
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+
+.summary {
+    margin-top: 20px;
+    color: #C8A2C8;
+    font-size: 0.9em;
+}
 @keyframes fadeIn {
   from { 
     opacity: 0; 
