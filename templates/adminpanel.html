@@ -72,15 +72,78 @@
         <!-- JavaScript akan mengisi content di sini -->
       </div>
 
-      <!-- Tickets -->
-      <div id="tickets" class="card section" style="display:none;">
-        <!-- JavaScript akan mengisi content di sini -->
-      </div>
+<div id="tickets" class="card section" style="display:none;">
+    <h2>Ticket Management</h2>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ticket ID</th>
+                    <th>Event Name</th>
+                    <th>Ticket Type</th>
+                    <th>Price</th>
+                    <th>Quantity Available</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px 20px; background: rgba(42, 42, 61, 0.7);">
+                        <p style="color: #FFD700; font-size: 1.2em; font-weight: bold; margin: 0;">
+                            ⚠️ Belum ada jenis Tiket yang didaftarkan.
+                        </p>
+                        <p style="color: #C8A2C8; margin-top: 10px; font-size: 0.9em;">
+                            *Tambahkan kategori tiket baru untuk event Anda di sini.*
+                        </p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="summary">
+        <p>Total Jenis Tiket: 0</p>
+        <button class="btn-primary" style="margin-top: 15px;">+ Add New Ticket Type</button>
+    </div>
+</div>
 
-      <!-- Transactions -->
-      <div id="transactions" class="card section" style="display:none;">
-        <!-- JavaScript akan mengisi content di sini -->
-      </div>
+<div id="transactions" class="card section" style="display:none;">
+    <h2>Transaction Management</h2>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Buyer Name</th>
+                    <th>Ticket Type</th>
+                    <th>Total Price</th>
+                    <th>Payment Method</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 40px 20px; background: rgba(42, 42, 61, 0.7);">
+                        <p style="color: #FFD700; font-size: 1.2em; font-weight: bold; margin: 0;">
+                            ⚠️ Belum ada data Transaksi.
+                        </p>
+                        <p style="color: #C8A2C8; margin-top: 10px; font-size: 0.9em;">
+                            *Semua transaksi yang berhasil dan tertunda akan muncul di sini.*
+                        </p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="summary">
+        <p>Total Transaksi: 0</p>
+    </div>
+</div>
 
       <!-- Users -->
       <div id="users" class="card section" style="display:none;">
