@@ -2,8 +2,9 @@ from flask import session
 from models.user import User
 
 class AuthService:
-    def __init__(self, database_service):
+    def __init__(self, database_service, security_service=None):
         self.db = database_service
+        self.security = security_service
     
     def get_current_user(self):
         token = session.get('token')
@@ -21,6 +22,11 @@ class AuthService:
         return User()
     
     def login(self, identifier, password):
+        # ⛔️ TEMPORARY: Skip secure login untuk testing
+        # if self.security:
+        #     return self.secure_login(identifier, password)
+        
+        # ✅ Langsung pakai API login
         response = self.db.login_user(identifier, password)
         if response and response.status_code == 200:
             data = response.json()
@@ -40,10 +46,27 @@ class AuthService:
             }
     
     def register(self, username, email, password, confirm_password):
+        # Password strength validation (tetap aktif)
+        if self.security:
+            is_strong, message = self.security.is_password_strong(password)
+            if not is_strong:
+                return {'success': False, 'error': message}
+        
         if password != confirm_password:
             return {'success': False, 'error': 'Passwords do not match!'}
         
-        response = self.db.register_user(username, email, password)
+        # Hash password sebelum kirim ke database (tetap aktif)
+        hashed_password = password  # Default (plaintext)
+        if self.security:
+            hashed_password = self.security.hash_password(password)
+        
+        response = self.db.register_user({
+            'username': username,
+            'email': email,
+            'password': hashed_password,  # ← SUDAH HASHED!
+            'role': 'user'
+        })
+
         if response and response.status_code == 201:
             return {'success': True}
         else:

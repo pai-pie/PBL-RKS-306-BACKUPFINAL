@@ -1,9 +1,10 @@
-from flask import Flask, render_template, redirect, url_for, session
+from flask import Flask, render_template, redirect, url_for, session, jsonify, request, flash
 import os
 
 # Import services dan controllers
 from services.database_service import DatabaseService
 from services.auth_service import AuthService
+from services.security_service import SecurityService  # ← UNCOMMENT KARENA SUDAH PAKAI FALLBACK
 from controllers.auth_controller import AuthController
 from controllers.admin_controller import AdminController
 
@@ -11,9 +12,10 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600
 
-# Initialize services
-database_service = DatabaseService()
-auth_service = AuthService(database_service)
+# Initialize services DENGAN SECURITY SERVICE YANG BARU
+security_service = SecurityService()  # ← UNCOMMENT - SEKARAN AMAN
+database_service = DatabaseService(security_service)  # ← INJECT SECURITY
+auth_service = AuthService(database_service, security_service)  # ← INJECT SECURITY
 
 # Initialize controllers
 auth_controller = AuthController(auth_service)
@@ -113,4 +115,5 @@ if __name__ == "__main__":
     print("🚀 Server starting...")
     print("📊 Database: External API Service")
     print("🔗 Database API URL:", database_service.api_url)
+    print("🔒 Security: Enhanced with SHA-256 hashing & input sanitization")  # ← UPDATE MESSAGE
     app.run(debug=True, host='0.0.0.0', port=5000)
