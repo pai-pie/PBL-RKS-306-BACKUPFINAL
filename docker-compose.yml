@@ -20,7 +20,7 @@ services:
     networks:
       - app-network
 
-  database:
+  database:  # ← INI HARUS SEJAJAR DENGAN 'web', BUKAN DI DALAMNYA
     build:
       context: .
       dockerfile: Dockerfile.database
@@ -35,6 +35,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    volumes:
+      - ./database_api.py:/app/database_api.py  # Volume mapping
     networks:
       - app-network
 
@@ -44,7 +46,7 @@ services:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: guardiantix
     ports:
-      - "3307:3306"  # Changed to avoid conflict with local MySQL
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql

@@ -8,19 +8,22 @@ class AuthService:
         self.security = security_service
     
     def get_current_user(self):
-        token = session.get('token')
-        if not token:
-            return User()
-        
-        try:
-            response = self.db.check_session(token)
-            if response and response.status_code == 200:
-                user_data = response.json().get('user', {})
-                return User(user_data)
-        except Exception as e:
-            print(f"Error getting current user: {e}")
-        
-        return User()
+        user_id = session.get('user_id')
+        username = session.get('username')
+        email = session.get('email') 
+        role = session.get('role')
+    
+    # Jika ada session data, anggap user authenticated
+        if user_id and username:
+            return User({
+                'id': user_id,
+                'username': username, 
+                'email': email,
+                'role': role or 'user'
+            })
+    
+        return User()  
+    
     
     def login(self, identifier, password):
         # ⛔️ TEMPORARY: Skip secure login untuk testing

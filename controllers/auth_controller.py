@@ -7,12 +7,19 @@ class AuthController:
     
     def homepage(self):
         user = self.auth.get_current_user()
+    
+    # DEBUG
+        print(f"🔍 User ID in session: {session.get('user_id')}")
+        print(f"🔍 User authenticated: {user.is_authenticated()}")
+        print(f"🔍 User role: {getattr(user, 'role', 'none')}")
+    
         if not user.is_authenticated():
+            print("❌ Redirecting to login - user not authenticated")
             return redirect(url_for("login"))
-        
+    
         if user.is_admin():
             return redirect(url_for("admin_panel"))
-        
+    
         return render_template("user/homepage.html", username=user.username)
     
     def register(self):
