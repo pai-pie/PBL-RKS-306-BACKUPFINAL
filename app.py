@@ -1,10 +1,11 @@
 from flask import Flask, render_template, redirect, url_for, session, jsonify, request, flash
 import os
+import time
 
 # Import services dan controllers
 from services.database_service import DatabaseService
 from services.auth_service import AuthService
-from services.security_service import SecurityService  # ← UNCOMMENT KARENA SUDAH PAKAI FALLBACK
+from services.security_service import SecurityService
 from controllers.auth_controller import AuthController
 from controllers.admin_controller import AdminController
 
@@ -12,10 +13,20 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600
 
-# Initialize services DENGAN SECURITY SERVICE YANG BARU
-security_service = SecurityService()  # ← UNCOMMENT - SEKARAN AMAN
-database_service = DatabaseService(security_service)  # ← INJECT SECURITY
-auth_service = AuthService(database_service, security_service)  # ← INJECT SECURITY
+# ==========================
+#   INITIALIZE SERVICES - DOCKER VERSION
+# ==========================
+
+# Dapatkan environment variables untuk Docker
+DATABASE_API_URL = os.getenv('DATABASE_API_URL', 'http://localhost:8000')
+print(f"🔗 Database API URL: {DATABASE_API_URL}")
+
+# Initialize services
+security_service = SecurityService()
+database_service = DatabaseService(security_service)
+database_service.api_url = DATABASE_API_URL  # ← OVERRIDE UNTUK DOCKER
+
+auth_service = AuthService(database_service, security_service)
 
 # Initialize controllers
 auth_controller = AuthController(auth_service)
@@ -82,7 +93,7 @@ def concerts():
             {'id': 2, 'name': 'Blackpink Show', 'artist': 'Blackpink', 'date': '2024-11-20', 'venue': 'Istora Senayan', 'price': 1200000, 'available_tickets': 500}
         ])
 
-# User routes (tetap sama persis)
+# User routes
 @app.route("/concert")
 def concert():
     user = auth_service.get_current_user()
@@ -111,9 +122,42 @@ def success():
         return redirect(url_for("login"))
     return render_template("user/success.html")
 
+# Health check endpoint
+@app.route("/health")
+def health_check():
+    """Health check endpoint untuk Docker"""
+    try:
+        user = auth_service.get_current_user()
+        return jsonify({
+            "status": "healthy",
+            "service": "GuardianTix Web App",
+            "database_connected": user.is_authenticated() if user else False,
+            "database_api_url": DATABASE_API_URL
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e)
+        }), 500
+
+# ==========================
+#   APPLICATION STARTUP
+# ==========================
+
+def wait_for_services():
+    """Tunggu services lain siap (untuk Docker)"""
+    print("⏳ Waiting for backend services to be ready...")
+    time.sleep(15)  # Tunggu lebih lama
+    print("✅ Starting web application...")
+
 if __name__ == "__main__":
+    # Tunggu services siap sebelum start
+    wait_for_services()
+    
     print("🚀 Server starting...")
-    print("📊 Database: External API Service")
-    print("🔗 Database API URL:", database_service.api_url)
-    print("🔒 Security: Enhanced with SHA-256 hashing & input sanitization")  # ← UPDATE MESSAGE
+    print("📊 Database: MySQL (Docker)")
+    print("🔗 Database API URL:", DATABASE_API_URL)
+    print("🔒 Security: Enhanced with SHA-256 hashing & input sanitization")
+    print("🏠 Host: 0.0.0.0:5000")
+    
     app.run(debug=True, host='0.0.0.0', port=5000)

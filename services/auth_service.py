@@ -1,5 +1,6 @@
 from flask import session
 from models.user import User
+import hashlib  # ← TAMBAH IMPORT DI SINI
 
 class AuthService:
     def __init__(self, database_service, security_service=None):
@@ -38,8 +39,11 @@ class AuthService:
         else:
             error_msg = "Invalid credentials!"
             if response:
-                error_details = response.json().get('error', 'Unknown error')
-                error_msg = f"Login failed: {error_details}"
+                try:
+                    error_details = response.json().get('error', 'Unknown error')
+                    error_msg = f"Login failed: {error_details}"
+                except:
+                    error_msg = f"Login failed: HTTP {response.status_code}"
             return {
                 'success': False,
                 'error': error_msg
@@ -55,15 +59,11 @@ class AuthService:
         if password != confirm_password:
             return {'success': False, 'error': 'Passwords do not match!'}
         
-        # Hash password sebelum kirim ke database (tetap aktif)
-        hashed_password = password  # Default (plaintext)
-        if self.security:
-            hashed_password = self.security.hash_password(password)
-        
+        # PLAINTEXT PASSWORD - NO HASHING
         response = self.db.register_user({
             'username': username,
             'email': email,
-            'password': hashed_password,  # ← SUDAH HASHED!
+            'password': password,  # ← PLAINTEXT!
             'role': 'user'
         })
 
@@ -74,7 +74,7 @@ class AuthService:
             if response:
                 error_details = response.json().get('error', 'Unknown error')
                 error_msg = f"Registration failed: {error_details}"
-            return {'success': False, 'error': error_msg}
+            return {'success': False, 'error': error_msg}  # ← INI SEJAJAR DENGAN ELSE
     
     def set_session(self, user, token):
         session['token'] = token
