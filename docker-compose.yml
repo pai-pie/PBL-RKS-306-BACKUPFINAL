@@ -12,7 +12,6 @@ services:
       - MYSQL_USER=root
       - MYSQL_PASSWORD=password
       - MYSQL_DATABASE=guardiantix
-      - MYSQL_PORT=3306
     depends_on:
       - database
     volumes:
@@ -20,7 +19,7 @@ services:
     networks:
       - app-network
 
-  database:  # ← INI HARUS SEJAJAR DENGAN 'web', BUKAN DI DALAMNYA
+  database:
     build:
       context: .
       dockerfile: Dockerfile.database
@@ -36,7 +35,7 @@ services:
       mysql:
         condition: service_healthy
     volumes:
-      - ./database_api.py:/app/database_api.py  # Volume mapping
+      - ./database_api.py:/app/database_api.py
     networks:
       - app-network
 
@@ -46,7 +45,7 @@ services:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: guardiantix
     ports:
-      - "3307:3306"
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -57,6 +56,16 @@ services:
       start_period: 30s
     networks:
       - app-network
+
+  # HAPUS SERVICE BEEKEEPER (karena error image)
+  # beekeeper:
+  #   image: beekeeperstudio/beekeeper-studio:latest
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - mysql
+  #   networks:
+  #     - app-network
 
 volumes:
   mysql_data:
